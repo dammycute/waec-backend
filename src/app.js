@@ -10,6 +10,7 @@ const analyticsRoutes = require('./routes/analytics');
 const resultRoutes = require('./routes/results');
 const errorHandler = require('./middleware/errorHandler');
 const subjectRoutes = require('./routes/subjects');
+const questionRoutes = require('./routes/questions');
 
 const app = express();
 
@@ -56,6 +57,8 @@ app.use('/api/tests', testRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/subjects', subjectRoutes);
+app.use('/api/questions', questionRoutes);
+
 
 // Error handler
 app.use(errorHandler);
