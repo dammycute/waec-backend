@@ -9,6 +9,7 @@ const testRoutes = require('./routes/tests');
 const analyticsRoutes = require('./routes/analytics');
 const resultRoutes = require('./routes/results');
 const errorHandler = require('./middleware/errorHandler');
+const subjectRoutes = require('./routes/subjects');
 
 const app = express();
 
@@ -48,11 +49,13 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/tests', testRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/results', resultRoutes);
+app.use('/api/subjects', subjectRoutes);
 
 // Error handler
 app.use(errorHandler);

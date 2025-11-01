@@ -1,28 +1,98 @@
 const { Test, TestAttempt, Question, Subject, Analytics, User } = require('../models');
 const { Op } = require('sequelize');
 const { calculatePercentage } = require('../utils/helpers');
+const { sequelize } = require('../models');
+
+
+// @desc    Get all tests
+// @route   GET /api/tests
+// @access  Private
+
+exports.generateTest = async (req, res, next) => {
+  try {
+    const { subjectId, type, questionCount, difficulty } = req.body;
+
+    if (!subjectId || !type || !questionCount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide subject, type, and question count'
+      });
+    }
+
+    if (type === 'mock' && req.user.subscriptionPlan === 'free') {
+      return res.status(403).json({
+        success: false,
+        message: 'Upgrade to premium to access mock exams'
+      });
+    }
+
+    const durations = { quick: 30, subject: 60, mock: 180 };
+    const duration = durations[type] || 60;
+
+    const where = { subjectId, isActive: true, type: 'multiple-choice' };
+    if (difficulty && difficulty !== 'mixed') where.difficulty = difficulty;
+
+    const questions = await Question.findAll({
+      where,
+      order: sequelize.literal('RANDOM()'), // ✅ now works
+      limit: parseInt(questionCount),
+      attributes: { exclude: ['correctAnswer', 'explanation', 'createdBy'] }
+    });
+
+    if (questions.length < questionCount) {
+      return res.status(400).json({
+        success: false,
+        message: `Only ${questions.length} questions available. Please select fewer questions.`
+      });
+    }
+
+    const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
+    const subject = await Subject.findByPk(subjectId);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: `dynamic-${Date.now()}`,
+        title: `${subject.name} ${type.charAt(0).toUpperCase() + type.slice(1)} Test`,
+        subject: {
+          id: subject.id,
+          name: subject.name,
+          code: subject.code,
+          icon: subject.icon,
+          color: subject.color
+        },
+        type,
+        duration,
+        totalQuestions: questions.length,
+        totalPoints,
+        difficulty: difficulty || 'mixed',
+        questions: questions.map(q => ({
+          id: q.id,
+          text: q.text,
+          type: q.type,
+          options: q.options,
+          topic: q.topic,
+          difficulty: q.difficulty,
+          points: q.points,
+          imageUrl: q.imageUrl
+        })),
+        instructions: `This is a ${type} test for ${subject.name}. Answer all questions to the best of your ability. Good luck!`,
+        startTime: new Date()
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 // @desc    Get all tests
 // @route   GET /api/tests
 // @access  Private
 exports.getTests = async (req, res, next) => {
   try {
-    const { subject, type, difficulty } = req.query;
-    
-    let where = { isActive: true };
-    
-    if (subject) where.subjectId = subject;
-    if (type) where.type = type;
-    if (difficulty) where.difficulty = difficulty;
-
     const tests = await Test.findAll({
-      where,
-      include: [{
-        model: Subject,
-        as: 'subject',
-        attributes: ['name', 'code']
-      }],
-      attributes: { exclude: ['questions'] },
+      include: [{ model: Subject, as: 'subject', attributes: ['name', 'code'] }],
       order: [['createdAt', 'DESC']]
     });
 
@@ -36,17 +106,13 @@ exports.getTests = async (req, res, next) => {
   }
 };
 
-// @desc    Get single test
+// @desc    Get single test by ID
 // @route   GET /api/tests/:id
 // @access  Private
 exports.getTest = async (req, res, next) => {
   try {
     const test = await Test.findByPk(req.params.id, {
-      include: [{
-        model: Subject,
-        as: 'subject',
-        attributes: ['name', 'code']
-      }]
+      include: [{ model: Subject, as: 'subject', attributes: ['name', 'code'] }]
     });
 
     if (!test) {
@@ -56,25 +122,15 @@ exports.getTest = async (req, res, next) => {
       });
     }
 
-    // Get questions (without correct answers for students)
-    const questions = await Question.findAll({
-      where: {
-        id: { [Op.in]: test.questions }
-      },
-      attributes: { exclude: ['correctAnswer', 'explanation'] }
-    });
-
     res.status(200).json({
       success: true,
-      data: {
-        ...test.toJSON(),
-        questions
-      }
+      data: test
     });
   } catch (error) {
     next(error);
   }
 };
+
 
 // @desc    Create test
 // @route   POST /api/tests
@@ -169,16 +225,130 @@ exports.startTest = async (req, res, next) => {
   }
 };
 
+
+// @desc    Generate dynamic test
+// @route   POST /api/tests/generate
+// @access  Private
+exports.generateTest = async (req, res, next) => {
+  try {
+    const { subjectId, type, questionCount, difficulty } = req.body;
+
+    // Validate input
+    if (!subjectId || !type || !questionCount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide subject, type, and question count'
+      });
+    }
+
+    // Check subscription for mock exams
+    if (type === 'mock' && req.user.subscriptionPlan === 'free') {
+      return res.status(403).json({
+        success: false,
+        message: 'Upgrade to premium to access mock exams'
+      });
+    }
+
+    // Set duration based on test type
+    const durations = {
+      quick: 30,
+      subject: 60,
+      mock: 180
+    };
+    const duration = durations[type] || 60;
+
+    // Get questions
+    let where = { 
+      subjectId, 
+      isActive: true,
+      type: 'multiple-choice' // Only MCQ for now
+    };
+    
+    if (difficulty && difficulty !== 'mixed') {
+      where.difficulty = difficulty;
+    }
+
+    const questions = await Question.findAll({
+      where,
+      order: sequelize.literal('RANDOM()'),
+      limit: parseInt(questionCount),
+      attributes: { exclude: ['correctAnswer', 'explanation', 'createdBy'] }
+    });
+
+    if (questions.length < questionCount) {
+      return res.status(400).json({
+        success: false,
+        message: `Only ${questions.length} questions available. Please select fewer questions.`
+      });
+    }
+
+    // Calculate total points
+    const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
+
+    // Get subject details
+    const subject = await Subject.findByPk(subjectId);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: `dynamic-${Date.now()}`, // Temporary ID for dynamic tests
+        title: `${subject.name} ${type.charAt(0).toUpperCase() + type.slice(1)} Test`,
+        subject: {
+          id: subject.id,
+          name: subject.name,
+          code: subject.code,
+          icon: subject.icon,
+          color: subject.color
+        },
+        type,
+        duration,
+        totalQuestions: questions.length,
+        totalPoints,
+        difficulty: difficulty || 'mixed',
+        questions: questions.map(q => ({
+          id: q.id,
+          text: q.text,
+          type: q.type,
+          options: q.options,
+          topic: q.topic,
+          difficulty: q.difficulty,
+          points: q.points,
+          imageUrl: q.imageUrl
+        })),
+        instructions: `This is a ${type} test for ${subject.name}. Answer all questions to the best of your ability. Good luck!`,
+        startTime: new Date()
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
 // @desc    Submit test
 // @route   POST /api/tests/:id/submit
 // @access  Private
 exports.submitTest = async (req, res, next) => {
   try {
-    const { answers, startTime, endTime } = req.body;
+    const { answers, startTime, endTime, testData } = req.body;
     
-    const test = await Test.findByPk(req.params.id);
+    // For dynamic tests, testData will be provided in the request
+    let test = await Test.findByPk(req.params.id);
+    let isDynamicTest = false;
 
-    if (!test) {
+    if (!test && testData) {
+      // This is a dynamic test
+      isDynamicTest = true;
+      test = {
+        id: testData.id,
+        subjectId: testData.subject.id,
+        type: testData.type,
+        questions: testData.questions.map(q => q.id),
+        totalQuestions: testData.totalQuestions,
+        totalPoints: testData.totalPoints
+      };
+    } else if (!test) {
       return res.status(404).json({
         success: false,
         message: 'Test not found'
@@ -220,10 +390,12 @@ exports.submitTest = async (req, res, next) => {
       topicPerformance[question.topic].attempted++;
       if (isCorrect) topicPerformance[question.topic].correct++;
 
-      // Update question statistics
-      question.usageCount++;
-      if (isCorrect) question.correctCount++;
-      question.save();
+      // Update question statistics (only for non-dynamic tests)
+      if (!isDynamicTest) {
+        question.usageCount++;
+        if (isCorrect) question.correctCount++;
+        question.save();
+      }
 
       return {
         question: question.id,
@@ -249,7 +421,7 @@ exports.submitTest = async (req, res, next) => {
     // Save test attempt
     const testAttempt = await TestAttempt.create({
       userId: req.user.id,
-      testId: test.id,
+      testId: isDynamicTest ? null : test.id,
       answers: processedAnswers,
       score,
       percentage,
@@ -264,7 +436,7 @@ exports.submitTest = async (req, res, next) => {
       topicPerformance: topicPerformanceArray
     });
 
-    // Update user analytics
+    // Update user analytics (same as before)
     const analytics = await Analytics.findOne({ where: { userId: req.user.id } });
     if (analytics) {
       const newTotalTests = analytics.totalTests + 1;
@@ -297,6 +469,40 @@ exports.submitTest = async (req, res, next) => {
         }
       } else {
         await analytics.update({ currentStreak: 1 });
+      }
+
+      // Update subject performance
+      const subjectPerf = analytics.subjectPerformance || [];
+      const subjectIndex = subjectPerf.findIndex(s => s.subjectId === test.subjectId);
+      
+      if (subjectIndex > -1) {
+        const current = subjectPerf[subjectIndex];
+        subjectPerf[subjectIndex] = {
+          subjectId: test.subjectId,
+          totalTests: current.totalTests + 1,
+          averageScore: ((current.averageScore * current.totalTests) + percentage) / (current.totalTests + 1),
+          lastTested: new Date()
+        };
+      } else {
+        subjectPerf.push({
+          subjectId: test.subjectId,
+          totalTests: 1,
+          averageScore: percentage,
+          lastTested: new Date()
+        });
+      }
+
+      await analytics.update({ subjectPerformance: subjectPerf });
+
+      // Update weaknesses (topics below 60%)
+      const weakTopics = topicPerformanceArray
+        .filter(t => t.percentage < 60)
+        .map(t => t.topic);
+      
+      if (weakTopics.length > 0) {
+        const currentWeaknesses = analytics.weaknesses || [];
+        const updatedWeaknesses = [...new Set([...currentWeaknesses, ...weakTopics])];
+        await analytics.update({ weaknesses: updatedWeaknesses.slice(0, 10) });
       }
     }
 

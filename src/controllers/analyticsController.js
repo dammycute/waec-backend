@@ -50,6 +50,42 @@ exports.getSubjectPerformance = async (req, res, next) => {
   }
 };
 
+
+// @desc    Get recent tests
+// @route   GET /api/analytics/recent-tests
+// @access  Private
+exports.getRecentTests = async (req, res, next) => {
+  try {
+    const { limit = 5 } = req.query;
+    
+    const attempts = await TestAttempt.findAll({
+      where: { 
+        userId: req.user.id,
+        status: 'completed'
+      },
+      include: [{
+        model: Test,
+        as: 'test',
+        include: [{
+          model: Subject,
+          as: 'subject',
+          attributes: ['name', 'code', 'icon', 'color']
+        }],
+        attributes: ['id', 'title', 'type']
+      }],
+      order: [['completedAt', 'DESC']],
+      limit: parseInt(limit)
+    });
+
+    res.status(200).json({
+      success: true,
+      data: attempts
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Get topic mastery
 // @route   GET /api/analytics/topic-mastery
 // @access  Private
