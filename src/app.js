@@ -17,6 +17,7 @@ const app = express();
 // Security middleware
 app.use(helmet());
 
+app.set('trust proxy', 1);
 // CORS
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
