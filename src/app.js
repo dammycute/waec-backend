@@ -60,7 +60,7 @@ const limiter = rateLimit({
   }
 });
 
-app.use('/', limiter);  // Changed from '/api/' to apply globally after redirect strip
+app.use('/api', limiter);  // Changed from '/api/' to apply globally after redirect strip
 
 // Health check
 app.get('/health', (req, res) => {
