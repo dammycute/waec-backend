@@ -17,11 +17,13 @@ const {
   resetPasswordValidator
 } = require('../validators/authValidators');
 
-console.log('Login route hit — body:', req.body, 'headers:', req.headers.origin);
 
 
 router.post('/register', registerValidator, validate, register);
-router.post('/login', loginValidator, validate, login);
+router.post('/login', loginValidator, validate, (req, res, next) => {
+  console.log('Login route hit — body:', req.body, 'origin:', req.headers.origin);
+  login(req, res, next);
+});
 router.post('/forgot-password', forgotPasswordValidator, validate, forgotPassword);
 router.put('/reset-password/:resetToken', resetPasswordValidator, validate, resetPassword);
 router.get('/me', protect, getMe);
