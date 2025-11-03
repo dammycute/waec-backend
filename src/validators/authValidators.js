@@ -33,13 +33,27 @@ exports.registerValidator = [
 ];
 
 exports.loginValidator = [
+  // `emailOrPhone` field (we’ll call it `email`) — must not be empty
   body('email')
     .trim()
-    .notEmpty().withMessage('Email or phone is required'),
-  
+    .notEmpty().withMessage('Email or phone is required')
+    .bail()
+    // Custom check: either valid email OR valid phone number
+    .custom(value => {
+      const emailRegex = /^[\w.%+-]+@[\w.-]+\.[A-Za-z]{2,}$/;
+      const phoneRegex = /^\d{10,15}$/;  // adjust length to your phone format
+      if (emailRegex.test(value) || phoneRegex.test(value)) {
+        return true;
+      }
+      throw new Error('Must be a valid email or phone number');
+    }),
+
   body('password')
     .notEmpty().withMessage('Password is required')
+    .bail()
+    .isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
 ];
+
 
 exports.forgotPasswordValidator = [
   body('email')

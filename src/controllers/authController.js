@@ -84,10 +84,13 @@ exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    // Find user (can be email or phone)
+    // Find user by email OR phone
     const user = await User.findOne({
       where: {
-        [require('sequelize').Op.or]: [{ email }, { phone: email }]
+        [Op.or]: [
+          { email: email },
+          { phone: email }
+        ]
       }
     });
 
@@ -98,7 +101,6 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // Check password
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       return res.status(401).json({
@@ -107,10 +109,9 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // Update last login
+    // Update last login time (optional)
     await user.update({ lastLogin: new Date() });
 
-    // Generate token
     const token = user.getSignedJwtToken();
 
     res.status(200).json({
