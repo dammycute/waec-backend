@@ -9,5 +9,6 @@ exports.validate = (req, res, next) => {
       errors: errors.array()
     });
   }
+  console.log('Validation errors:', errors.array());
   next();
 };
