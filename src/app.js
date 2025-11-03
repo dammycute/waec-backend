@@ -42,15 +42,18 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP',
   standardHeaders: true,  // ✅ Return rate limit info in headers
   legacyHeaders: false,   // ✅ Disable deprecated headers
-  keyGenerator: (req) => {
-    // ✅ Explicitly handle undefined IPs
-    return (
-      req.ip ||
-      req.headers['x-forwarded-for']?.split(',')[0] ||
-      'unknown'
-    );
-  },
+   keyGenerator: rateLimit.ipKeyGenerator
 });
+
+//keyGenerator: (req) => {
+//     // ✅ Explicitly handle undefined IPs
+//     return (
+//       req.ip ||
+//       req.headers['x-forwarded-for']?.split(',')[0] ||
+//       'unknown'
+//     );
+//   },
+// });
 
 app.use('/api/', limiter);
 
