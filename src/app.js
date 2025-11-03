@@ -22,7 +22,7 @@ app.set('trust proxy', true);
 
 // CORS - More permissive during testing
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',  // Allow all origins during testing
+  origin: process.env.FRONTEND_URL || 'https://ht-waec.netlify.app',  // Allow all origins during testing
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -72,12 +72,12 @@ app.get('/health', (req, res) => {
 });
 
 // Routes (removed /api prefix to match post-redirect paths)
-app.use('/auth', authRoutes);
-app.use('/tests', testRoutes);
-app.use('/analytics', analyticsRoutes);
-app.use('/results', resultRoutes);
-app.use('/subjects', subjectRoutes);
-app.use('/questions', questionRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/tests', testRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/results', resultRoutes);
+app.use('/api/subjects', subjectRoutes);
+app.use('/api/questions', questionRoutes);
 
 // Error handler
 app.use(errorHandler);
