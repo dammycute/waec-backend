@@ -33,19 +33,22 @@ exports.registerValidator = [
 ];
 
 exports.loginValidator = [
-  // `emailOrPhone` field (we’ll call it `email`) — must not be empty
-  body('email')
+  // Accept either email or emailOrPhone field
+  body(['email', 'emailOrPhone'])
     .trim()
     .notEmpty().withMessage('Email or phone is required')
     .bail()
-    // Custom check: either valid email OR valid phone number
-    .custom(value => {
-      const emailRegex = /^[\w.%+-]+@[\w.-]+\.[A-Za-z]{2,}$/;
-      const phoneRegex = /^\d{10,15}$/;  // adjust length to your phone format
-      if (emailRegex.test(value) || phoneRegex.test(value)) {
+    .custom((value, { req }) => {
+      console.log('Validating login field:', value);
+      // Basic email check (more permissive)
+      const isEmail = value.includes('@');
+      // Basic phone check (just digits, +, or spaces)
+      const isPhone = /^[+\d\s-]+$/.test(value);
+      
+      if (isEmail || isPhone) {
         return true;
       }
-      throw new Error('Must be a valid email or phone number');
+      throw new Error('Please enter a valid email or phone number');
     }),
 
   body('password')
@@ -53,7 +56,6 @@ exports.loginValidator = [
     .bail()
     .isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
 ];
-
 
 exports.forgotPasswordValidator = [
   body('email')
