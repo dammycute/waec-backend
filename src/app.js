@@ -20,11 +20,24 @@ app.use(helmet());
 // ✅ Trust proxy - required when deploying to Netlify, Vercel, or behind a load balancer
 app.set('trust proxy', true);
 
-// CORS
+// CORS - More permissive during testing
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://ht-waec.netlify.app',
-  credentials: true
+  origin: process.env.FRONTEND_URL || '*',  // Allow all origins during testing
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Debug middleware to log requests
+app.use((req, res, next) => {
+  console.log('🔍 Request:', {
+    method: req.method,
+    path: req.path,
+    headers: req.headers,
+    body: req.body
+  });
+  next();
+});
 
 // Body parser
 app.use(express.json());

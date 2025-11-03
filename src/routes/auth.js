@@ -20,10 +20,28 @@ const {
 
 
 router.post('/register', registerValidator, validate, register);
-router.post('/login', loginValidator, validate, (req, res, next) => {
-  console.log('Login route hit — body:', req.body, 'origin:', req.headers.origin);
-  login(req, res, next);
-});
+router.post('/login', (req, res, next) => {
+  // Pre-process the request body to handle both email and emailOrPhone
+  if (req.body.email && !req.body.emailOrPhone) {
+    req.body.emailOrPhone = req.body.email;
+  }
+  
+  console.log('📝 Login attempt:', {
+    rawBody: req.body,
+    processedBody: {
+      email: req.body.email,
+      emailOrPhone: req.body.emailOrPhone,
+      password: req.body.password ? '[REDACTED]' : undefined
+    },
+    headers: {
+      'content-type': req.headers['content-type'],
+      origin: req.headers.origin,
+      host: req.headers.host,
+      'user-agent': req.headers['user-agent']
+    }
+  });
+  next();
+}, loginValidator, validate, login);
 router.post('/forgot-password', forgotPasswordValidator, validate, forgotPassword);
 router.put('/reset-password/:resetToken', resetPasswordValidator, validate, resetPassword);
 router.get('/me', protect, getMe);
