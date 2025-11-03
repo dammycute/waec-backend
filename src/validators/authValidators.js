@@ -33,24 +33,18 @@ exports.registerValidator = [
 ];
 
 exports.loginValidator = [
-  // Accept either email or emailOrPhone field
   body(['email', 'emailOrPhone'])
     .trim()
     .notEmpty().withMessage('Email or phone is required')
     .bail()
-    .custom((value, { req }) => {
-      console.log('Validating login field:', value);
-      // Basic email check (more permissive)
+    .custom((value) => {
       const isEmail = value.includes('@');
-      // Basic phone check (just digits, +, or spaces)
-      const isPhone = /^[+\d\s-]+$/.test(value);
-      
+      const isPhone = /^[+\\d\\s-]+$/.test(value);
       if (isEmail || isPhone) {
         return true;
       }
       throw new Error('Please enter a valid email or phone number');
     }),
-
   body('password')
     .notEmpty().withMessage('Password is required')
     .bail()

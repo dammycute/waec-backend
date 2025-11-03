@@ -30,6 +30,8 @@ const init = async () => {
 };
 
 const handler = async (event, context) => {
+  // Patch: log the path for debugging
+  console.log('Netlify event.path:', event.path);
   // Wait for DB initialization before handling request
   await init();
   return serverless(app)(event, context);

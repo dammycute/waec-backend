@@ -48,7 +48,6 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
@@ -61,21 +60,10 @@ const limiter = rateLimit({
   }
 });
 
-
-//keyGenerator: (req) => {
-//     // ✅ Explicitly handle undefined IPs  
-//     return (
-//       req.ip ||
-//       req.headers['x-forwarded-for']?.split(',')[0] ||
-//       'unknown'
-//     );
-//   },
-// });
-
-app.use('/api/', limiter);
+app.use('/', limiter);  // Changed from '/api/' to apply globally after redirect strip
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
     message: 'WAEC CBT API is running',
@@ -83,15 +71,13 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/tests', testRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/results', resultRoutes);
-app.use('/api/subjects', subjectRoutes);
-app.use('/api/questions', questionRoutes);
-
+// Routes (removed /api prefix to match post-redirect paths)
+app.use('/auth', authRoutes);
+app.use('/tests', testRoutes);
+app.use('/analytics', analyticsRoutes);
+app.use('/results', resultRoutes);
+app.use('/subjects', subjectRoutes);
+app.use('/questions', questionRoutes);
 
 // Error handler
 app.use(errorHandler);
