@@ -42,11 +42,15 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP',
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: rateLimit.ipKeyGenerator
+  keyGenerator: rateLimit.ipKeyGenerator,
+  validate: {
+    keyGeneratorIpFallback: false
+  }
 });
 
+
 //keyGenerator: (req) => {
-//     // ✅ Explicitly handle undefined IPs
+//     // ✅ Explicitly handle undefined IPs  
 //     return (
 //       req.ip ||
 //       req.headers['x-forwarded-for']?.split(',')[0] ||
