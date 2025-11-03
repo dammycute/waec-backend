@@ -22,7 +22,7 @@ app.set('trust proxy', true);
 
 // CORS
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: process.env.FRONTEND_URL || 'https://ht-waec.netlify.app',
   credentials: true
 }));
 
@@ -35,8 +35,6 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// ✅ Fix rate limit IP detection
-const rateLimit = require('express-rate-limit');
 
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
