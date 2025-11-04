@@ -74,6 +74,7 @@ app.get('/', (req, res) => {
     environment: process.env.NODE_ENV || 'production',
     routes: {
       health: '/health or /api/health',
+      dbTest: '/api/db-test',
       auth: '/api/auth/*',
       tests: '/api/tests/*',
       subjects: '/api/subjects/*',
@@ -105,6 +106,37 @@ app.get('/api/health', (req, res) => {
     environment: process.env.NODE_ENV || 'production',
     uptime: process.uptime()
   });
+});
+
+// Database test endpoint
+app.get('/api/db-test', async (req, res) => {
+  console.log('🔍 Database test endpoint hit');
+  try {
+    const { sequelize } = require('./models');
+    await sequelize.authenticate();
+    
+    // Try to count users
+    const { User } = require('./models');
+    const userCount = await User.count();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Database connection successful',
+      database: {
+        connected: true,
+        userCount: userCount
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Database test failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Database connection failed',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
 });
 
 // API Routes
