@@ -20,19 +20,52 @@ const init = async () => {
 
 module.exports = async (req, res) => {
   // Log incoming request for debugging
-  console.log('Vercel incoming:', { method: req.method, url: req.url, path: req.url });
+  console.log('🔍 Vercel incoming:', { 
+    method: req.method, 
+    url: req.url, 
+    originalUrl: req.url,
+    headers: {
+      host: req.headers.host,
+      'x-forwarded-proto': req.headers['x-forwarded-proto']
+    }
+  });
+
+  // Handle health check FIRST before DB init
+  if (req.url === '/health' || req.url === '/api/health') {
+    console.log('✅ Health check hit');
+    return res.status(200).json({
+      success: true,
+      message: 'WAEC CBT API is running',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'production'
+    });
+  }
+
+  // Initialize DB for other routes
   try {
     await init();
   } catch (err) {
-    return res.status(500).json({ success: false, message: 'Database initialization error' });
+    console.error('DB Init Error:', err);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Database initialization error',
+      error: err.message 
+    });
   }
 
-  // Vercel may pass the path without the /api prefix for files depending on routing.
-  // Ensure the request path starts with /api so your Express routes (mounted on /api) match.
-  if (!req.url.startsWith('/api')) {
-    req.url = `/api${req.url}`;
+  // Normalize the path to ensure /api prefix
+  let normalizedUrl = req.url;
+  
+  // If URL doesn't start with /api, add it
+  if (!normalizedUrl.startsWith('/api')) {
+    normalizedUrl = `/api${normalizedUrl}`;
   }
+  
+  // Update request URL for Express
+  req.url = normalizedUrl;
 
-  // Express app is a request handler; forward request to it
+  console.log('📍 Normalized URL:', normalizedUrl);
+
+  // Forward to Express app
   return app(req, res);
 };
