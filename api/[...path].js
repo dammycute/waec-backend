@@ -19,10 +19,18 @@ const init = async () => {
 };
 
 module.exports = async (req, res) => {
+  // Log incoming request for debugging
+  console.log('Vercel incoming:', { method: req.method, url: req.url, path: req.url });
   try {
     await init();
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Database initialization error' });
+  }
+
+  // Vercel may pass the path without the /api prefix for files depending on routing.
+  // Ensure the request path starts with /api so your Express routes (mounted on /api) match.
+  if (!req.url.startsWith('/api')) {
+    req.url = `/api${req.url}`;
   }
 
   // Express app is a request handler; forward request to it
