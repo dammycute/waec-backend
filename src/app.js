@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');  // Import for IPv6 fix
 
 const authRoutes = require('./routes/auth');
 const testRoutes = require('./routes/tests');
@@ -53,7 +54,7 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Rate limiting - FIXED configuration for Vercel
+// Rate limiting - FIXED with ipKeyGenerator for IPv6
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
@@ -67,13 +68,14 @@ const limiter = rateLimit({
            req.path === '/' ||
            req.path === '/api/db-test';
   },
-  // Use X-Forwarded-For header (set by Vercel proxy)
+  // Fixed keyGenerator: Use x-forwarded-for with ipKeyGenerator for IPv6 safety
   keyGenerator: (req) => {
-    return req.ip || 
-           req.headers['x-forwarded-for']?.split(',')[0] || 
-           req.headers['x-real-ip'] || 
-           req.connection.remoteAddress || 
-           'unknown';
+    const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() ||
+               req.headers['x-real-ip'] ||
+               req.connection.remoteAddress ||
+               req.ip ||
+               'unknown';
+    return ipKeyGenerator(ip);  // Handles IPv6 subnets
   }
 });
 
@@ -163,8 +165,8 @@ app.use('/api/subjects', subjectRoutes);
 app.use('/api/questions', questionRoutes);
 console.log('✅ API routes configured');
 
-// Catch-all for unsupported methods on valid paths
-app.all('/api/auth/*', (req, res, next) => {
+// Catch-all for unsupported methods on valid paths - FIXED with :path*
+app.all('/api/auth/:path*', (req, res, next) => {
   if (req.method === 'GET' && req.path !== '/api/auth/me') {
     return res.status(405).json({
       success: false,
