@@ -2,7 +2,7 @@ const { User, Analytics } = require('../models');
 const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
 const { passwordResetEmail, welcomeEmail } = require('../utils/emailTemplates');
-
+const { Op } = require('sequelize');
 // @desc    Register user
 // @route   POST /api/auth/register
 // @access  Public
