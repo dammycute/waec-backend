@@ -3,7 +3,6 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-const { ipKeyGenerator } = require('express-rate-limit');  // Import for IPv6 fix
 
 const authRoutes = require('./routes/auth');
 const testRoutes = require('./routes/tests');
@@ -18,8 +17,8 @@ const app = express();
 // Security middleware
 app.use(helmet());
 
-// Trust proxy - set to 1 for Vercel (single proxy layer)
-app.set('trust proxy', 1);
+// Trust proxy
+app.set('trust proxy', true);
 
 // CORS - allow all origins for now to debug
 app.use(cors({
@@ -54,29 +53,14 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Rate limiting - FIXED with ipKeyGenerator for IPv6
+// Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+  message: 'Too many requests from this IP',
   standardHeaders: true,
   legacyHeaders: false,
-  // Skip rate limiting for health checks
-  skip: (req) => {
-    return req.path === '/health' || 
-           req.path === '/api/health' || 
-           req.path === '/' ||
-           req.path === '/api/db-test';
-  },
-  // Fixed keyGenerator: Use x-forwarded-for with ipKeyGenerator for IPv6 safety
-  keyGenerator: (req) => {
-    const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() ||
-               req.headers['x-real-ip'] ||
-               req.connection.remoteAddress ||
-               req.ip ||
-               'unknown';
-    return ipKeyGenerator(ip);  // Handles IPv6 subnets
-  }
+  skip: (req) => req.path === '/health' || req.path === '/api/health'
 });
 
 app.use(limiter);
@@ -156,33 +140,12 @@ app.get('/api/db-test', async (req, res) => {
 });
 
 // API Routes
-console.log('🔧 Setting up API routes...');
 app.use('/api/auth', authRoutes);
 app.use('/api/tests', testRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/questions', questionRoutes);
-console.log('✅ API routes configured');
-
-// Catch-all for unsupported methods on valid paths - FIXED with :path*
-app.all('/api/auth/:path*', (req, res, next) => {
-  if (req.method === 'GET' && req.path !== '/api/auth/me') {
-    return res.status(405).json({
-      success: false,
-      message: 'Method Not Allowed',
-      hint: `${req.path} does not support GET requests. Available methods: POST`,
-      availableEndpoints: {
-        'POST /api/auth/register': 'Register a new user',
-        'POST /api/auth/login': 'Login',
-        'POST /api/auth/forgot-password': 'Request password reset',
-        'PUT /api/auth/reset-password/:token': 'Reset password',
-        'GET /api/auth/me': 'Get current user (requires auth)'
-      }
-    });
-  }
-  next();
-});
 
 // Error handler
 app.use(errorHandler);
