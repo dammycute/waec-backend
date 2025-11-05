@@ -216,9 +216,10 @@ exports.submitTest = async (req, res, next) => {
     }));
 
     // Save test attempt
+    // For dynamic tests, testId should be null since it's not a real test in DB
     const testAttempt = await TestAttempt.create({
       userId: req.user.id,
-      testId: isDynamicTest ? null : test.id,
+      testId: isDynamicTest ? null : test.id,  // NULL for dynamic tests
       answers: processedAnswers,
       score,
       percentage,
