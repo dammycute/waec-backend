@@ -1,3 +1,4 @@
+// src/app.js - Add this line with other route imports
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -8,6 +9,7 @@ const authRoutes = require('./routes/auth');
 const testRoutes = require('./routes/tests');
 const analyticsRoutes = require('./routes/analytics');
 const resultRoutes = require('./routes/results');
+const reviewRoutes = require('./routes/reviews'); // ADD THIS LINE
 const errorHandler = require('./middleware/errorHandler');
 const subjectRoutes = require('./routes/subjects');
 const questionRoutes = require('./routes/questions');
@@ -80,7 +82,8 @@ app.get('/', (req, res) => {
       subjects: '/api/subjects/*',
       questions: '/api/questions/*',
       analytics: '/api/analytics/*',
-      results: '/api/results/*'
+      results: '/api/results/*',
+      reviews: '/api/reviews/*' // ADD THIS
     }
   });
 });
@@ -144,6 +147,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/tests', testRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/results', resultRoutes);
+app.use('/api/reviews', reviewRoutes); // ADD THIS LINE
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/questions', questionRoutes);
 
@@ -171,7 +175,8 @@ app.use((req, res) => {
       '/api/subjects',
       '/api/questions',
       '/api/analytics/me',
-      '/api/results/my-results'
+      '/api/results/my-results',
+      '/api/reviews/:attemptId' // ADD THIS
     ]
   });
 });
