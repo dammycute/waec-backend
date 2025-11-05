@@ -1,3 +1,4 @@
+// src/models/TestAttempt.js - Fixed version
 module.exports = (sequelize, DataTypes) => {
   const TestAttempt = sequelize.define('TestAttempt', {
     id: {
@@ -15,11 +16,17 @@ module.exports = (sequelize, DataTypes) => {
     },
     testId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,  // ALLOW NULL for dynamic tests
       references: {
         model: 'tests',
         key: 'id'
       }
+    },
+    // Store dynamic test metadata when testId is null
+    testMetadata: {
+      type: DataTypes.JSONB,
+      defaultValue: null,
+      comment: 'Stores test details for dynamic tests without testId'
     },
     answers: {
       type: DataTypes.JSONB,

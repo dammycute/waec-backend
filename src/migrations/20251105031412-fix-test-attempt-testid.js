@@ -1,26 +1,37 @@
-// src/migrations/YYYYMMDDHHMMSS-fix-test-attempt-testid.js
+// src/migrations/YYYYMMDDHHMMSS-add-test-metadata.js
 'use strict';
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    // Change testId to allow NULL for dynamic tests
+    // Make testId nullable
     await queryInterface.changeColumn('test_attempts', 'testId', {
       type: Sequelize.UUID,
-      allowNull: true,  // Allow NULL for dynamic tests
+      allowNull: true,
       references: {
         model: 'tests',
         key: 'id'
       },
       onUpdate: 'CASCADE',
-      onDelete: 'CASCADE'
+      onDelete: 'SET NULL'
+    });
+
+    // Add testMetadata column for dynamic tests
+    await queryInterface.addColumn('test_attempts', 'testMetadata', {
+      type: Sequelize.JSONB,
+      allowNull: true,
+      defaultValue: null,
+      comment: 'Stores test details for dynamic tests without testId'
     });
   },
 
   down: async (queryInterface, Sequelize) => {
-    // Revert back to NOT NULL if needed
+    // Remove testMetadata column
+    await queryInterface.removeColumn('test_attempts', 'testMetadata');
+
+    // Make testId NOT NULL again
     await queryInterface.changeColumn('test_attempts', 'testId', {
       type: Sequelize.UUID,
-      allowNull: false,  // Original constraint
+      allowNull: false,
       references: {
         model: 'tests',
         key: 'id'

@@ -1,4 +1,4 @@
-// src/controllers/testController.js - Updated with Random Generation
+// src/controllers/testController.js - Fixed version
 const { Test, TestAttempt, Question, Subject, Analytics, User } = require('../models');
 const { Op } = require('sequelize');
 const { calculatePercentage } = require('../utils/helpers');
@@ -28,7 +28,6 @@ exports.generateTest = async (req, res, next) => {
     const durations = { quick: 30, subject: 60, mock: 180 };
     const duration = durations[type] || 60;
 
-    // Build query for random selection
     const where = { 
       subjectId, 
       isActive: true,
@@ -39,7 +38,6 @@ exports.generateTest = async (req, res, next) => {
       where.difficulty = difficulty;
     }
 
-    // Get total count first
     const totalAvailable = await Question.count({ where });
 
     if (totalAvailable < questionCount) {
@@ -49,7 +47,7 @@ exports.generateTest = async (req, res, next) => {
       });
     }
 
-    // RANDOM SELECTION - Use RANDOM() for different DB
+    // RANDOM SELECTION using database-specific random function
     const randomOrder = process.env.DB_DIALECT === 'postgres' 
       ? sequelize.fn('RANDOM')
       : sequelize.fn('RAND');
@@ -61,14 +59,11 @@ exports.generateTest = async (req, res, next) => {
       attributes: { exclude: ['correctAnswer', 'explanation', 'createdBy'] }
     });
 
-    // Calculate total points
     const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
-
-    // Get subject details
     const subject = await Subject.findByPk(subjectId);
 
-    // Generate unique test ID for this session
-    const testId = `dynamic-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Generate a simple non-UUID identifier for dynamic tests
+    const testId = `dynamic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     console.log(`✅ Generated ${questions.length} random questions for test ${testId}`);
 
@@ -115,40 +110,55 @@ exports.generateTest = async (req, res, next) => {
 exports.submitTest = async (req, res, next) => {
   try {
     const { answers, startTime, endTime, testData } = req.body;
+    const testId = req.params.id;
     
     console.log('📥 Received test submission:', {
-      testId: req.params.id,
+      testId: testId,
       userId: req.user.id,
       answerCount: answers?.length,
       hasTestData: !!testData
     });
 
-    // For dynamic tests, testData will be provided
-    let test = await Test.findByPk(req.params.id);
-    let isDynamicTest = false;
+    // Check if this is a dynamic test (starts with 'dynamic_')
+    const isDynamicTest = testId.startsWith('dynamic_');
+    let test = null;
+    let questionIds = [];
 
-    if (!test && testData) {
-      isDynamicTest = true;
+    if (isDynamicTest) {
+      // For dynamic tests, use the testData from request
+      if (!testData) {
+        return res.status(400).json({
+          success: false,
+          message: 'Test data is required for dynamic tests'
+        });
+      }
+      
       test = {
-        id: testData.id,
+        id: testId,
         subjectId: testData.subject.id,
         type: testData.type,
         questions: testData.questions.map(q => q.id),
         totalQuestions: testData.totalQuestions,
         totalPoints: testData.totalPoints
       };
+      questionIds = test.questions;
       console.log('✅ Processing dynamic test');
-    } else if (!test) {
-      return res.status(404).json({
-        success: false,
-        message: 'Test not found'
-      });
+    } else {
+      // For regular tests, fetch from database
+      test = await Test.findByPk(testId);
+      if (!test) {
+        return res.status(404).json({
+          success: false,
+          message: 'Test not found'
+        });
+      }
+      questionIds = test.questions;
     }
 
     // Get all questions with correct answers
     const questions = await Question.findAll({
       where: {
-        id: { [Op.in]: test.questions }
+        id: { [Op.in]: questionIds }
       }
     });
 
@@ -216,10 +226,17 @@ exports.submitTest = async (req, res, next) => {
     }));
 
     // Save test attempt
-    // For dynamic tests, testId should be null since it's not a real test in DB
     const testAttempt = await TestAttempt.create({
       userId: req.user.id,
-      testId: isDynamicTest ? null : test.id,  // NULL for dynamic tests
+      testId: isDynamicTest ? null : testId,
+      testMetadata: isDynamicTest ? {
+        dynamicTestId: testId,
+        subjectId: test.subjectId,
+        type: test.type,
+        title: testData?.title,
+        totalQuestions: test.totalQuestions,
+        totalPoints: test.totalPoints
+      } : null,
       answers: processedAnswers,
       score,
       percentage,
@@ -274,19 +291,20 @@ exports.submitTest = async (req, res, next) => {
 
         // Update subject performance
         const subjectPerf = analytics.subjectPerformance || [];
-        const subjectIndex = subjectPerf.findIndex(s => s.subjectId === test.subjectId);
+        const subjectId = isDynamicTest ? test.subjectId : (await Test.findByPk(testId)).subjectId;
+        const subjectIndex = subjectPerf.findIndex(s => s.subjectId === subjectId);
         
         if (subjectIndex > -1) {
           const current = subjectPerf[subjectIndex];
           subjectPerf[subjectIndex] = {
-            subjectId: test.subjectId,
+            subjectId: subjectId,
             totalTests: current.totalTests + 1,
             averageScore: ((current.averageScore * current.totalTests) + percentage) / (current.totalTests + 1),
             lastTested: new Date()
           };
         } else {
           subjectPerf.push({
-            subjectId: test.subjectId,
+            subjectId: subjectId,
             totalTests: 1,
             averageScore: percentage,
             lastTested: new Date()
@@ -310,7 +328,6 @@ exports.submitTest = async (req, res, next) => {
       }
     } catch (analyticsError) {
       console.error('⚠️ Error updating analytics:', analyticsError);
-      // Don't fail the submission if analytics update fails
     }
 
     res.status(200).json({
