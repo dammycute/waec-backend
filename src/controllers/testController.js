@@ -1,4 +1,4 @@
-// src/controllers/testController.js - Fixed version
+// src/controllers/testController.js - Fixed for PostgreSQL
 const { Test, TestAttempt, Question, Subject, Analytics, User } = require('../models');
 const { Op } = require('sequelize');
 const { calculatePercentage } = require('../utils/helpers');
@@ -47,14 +47,10 @@ exports.generateTest = async (req, res, next) => {
       });
     }
 
-    // RANDOM SELECTION using database-specific random function
-    const randomOrder = process.env.DB_DIALECT === 'postgres' 
-      ? sequelize.fn('RANDOM')
-      : sequelize.fn('RAND');
-
+    // RANDOM SELECTION - PostgreSQL uses RANDOM(), not RAND()
     const questions = await Question.findAll({
       where,
-      order: randomOrder,
+      order: sequelize.random(), // This works for all databases
       limit: parseInt(questionCount),
       attributes: { exclude: ['correctAnswer', 'explanation', 'createdBy'] }
     });
@@ -291,7 +287,7 @@ exports.submitTest = async (req, res, next) => {
 
         // Update subject performance
         const subjectPerf = analytics.subjectPerformance || [];
-        const subjectId = isDynamicTest ? test.subjectId : (await Test.findByPk(testId)).subjectId;
+        const subjectId = test.subjectId;
         const subjectIndex = subjectPerf.findIndex(s => s.subjectId === subjectId);
         
         if (subjectIndex > -1) {
